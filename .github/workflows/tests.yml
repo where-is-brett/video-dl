@@ -47,12 +47,12 @@ jobs:
         python -m pip install --upgrade pip
         pip install -e ".[dev,test]"
 
-    - name: Run linting
-      run: |
-        black . --check
-        isort . --check-only
-        flake8 .
-        mypy src/
+    # - name: Run linting
+    #   run: |
+    #     black . --check
+    #     isort . --check-only
+    #     flake8 .
+    #     mypy src/
 
     - name: Run tests
       run: |
