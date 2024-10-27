@@ -152,7 +152,7 @@ jobs:
   #       secure: true
 
   cleanup:
-    needs: [test, package, docs, security, notify]
+    needs: [test, package, docs, security]
     if: always()
     runs-on: ubuntu-latest
     steps:
