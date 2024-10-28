@@ -1,4 +1,3 @@
-# pyproject.toml
 [build-system]
 requires = ["setuptools>=45", "wheel", "setuptools_scm>=6.2"]
 build-backend = "setuptools.build_meta"
@@ -13,6 +12,7 @@ license = {file = "LICENSE"}
 authors = [
     {name = "Brett Yang", email = "hello@brettyang.au"}
 ]
+keywords = ["video", "download", "youtube", "subtitles", "ffmpeg"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: End Users/Desktop",
@@ -22,6 +22,8 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Topic :: Multimedia :: Video",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
 ]
 dependencies = [
     "yt-dlp>=2023.11.16",
@@ -32,8 +34,17 @@ dependencies = [
     "schedule>=1.1.0",
     "tqdm>=4.65.0",
     "requests>=2.28.0",
-    "click>=8.0.0"
+    "click>=8.0.0",
+    "pyyaml>=6.0.1",
+    "colorama>=0.4.6",
+    "typing-extensions>=4.0.0"
 ]
+
+[project.urls]
+Homepage = "https://github.com/where-is-brett/video-dl"
+Documentation = "https://video-dl.readthedocs.io/"
+"Bug Tracker" = "https://github.com/where-is-brett/video-dl/issues"
+"Source Code" = "https://github.com/where-is-brett/video-dl"
 
 [project.optional-dependencies]
 dev = [
@@ -47,7 +58,6 @@ dev = [
     "pytest-mock>=3.10.0",
     "responses>=0.23.1"
 ]
-
 docs = [
     "mkdocs>=1.5.0",
     "mkdocs-material>=9.0.0",
@@ -62,6 +72,35 @@ subtitle-dl = "video_dl.cli.subtitle:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
+packages = ["video_dl"]
+
+[tool.setuptools.package-data]
+"video_dl" = ["py.typed"]
+
+[tool.setuptools.exclude-package-data]
+"*" = ["*.pyc", "*.pyo", "*.pyd", "__pycache__", "*.so"]
 
 [tool.setuptools_scm]
 write_to = "src/video_dl/_version.py"
+
+[tool.black]
+line-length = 88
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q --cov=video_dl"
+testpaths = ["tests"]
