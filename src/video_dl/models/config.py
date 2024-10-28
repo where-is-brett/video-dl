@@ -1,6 +1,5 @@
 # src/video_dl/models/config.py
 from dataclasses import dataclass, field
-import re
 from typing import Optional, List
 from pathlib import Path
 
