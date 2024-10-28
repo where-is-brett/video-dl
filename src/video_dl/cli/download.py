@@ -39,6 +39,11 @@ def cli():
               help='Extract audio only')
 @click.option('--audio-format', default='mp3',
               help='Audio format for extraction')
+@click.option('--video-codec', help='Video codec (e.g., libx264, libx265)')
+@click.option('--audio-codec', help='Audio codec (e.g., aac, mp3)')
+@click.option('--video-bitrate', help='Video bitrate (e.g., 5M)')
+@click.option('--audio-bitrate', help='Audio bitrate (e.g., 192k)')
+
 def download(url, **kwargs):
     """Download video from URL"""
     try:
@@ -46,16 +51,21 @@ def download(url, **kwargs):
             raise click.BadParameter(f"Invalid URL: {url}")
 
         # Prepare ProcessingConfig if processing is enabled
+        process_enabled = kwargs.pop('process', False)
         processing_config = None
-        if kwargs.pop('process', False):
+        if process_enabled:
             processing_config = ProcessingConfig(
-                crop=kwargs.pop('crop', None),  # Pop the crop parameter
+                crop=kwargs.pop('crop', None),
                 resize=kwargs.pop('resize', None),
                 rotate=kwargs.pop('rotate', None),
                 fps=kwargs.pop('fps', None),
                 remove_audio=kwargs.pop('remove_audio', False),
                 extract_audio=kwargs.pop('extract_audio', False),
-                audio_format=kwargs.pop('audio_format', 'mp3')
+                audio_format=kwargs.pop('audio_format', 'mp3'),
+                video_codec=kwargs.pop('video_codec', 'libx264'),
+                audio_codec=kwargs.pop('audio_codec', 'aac'),
+                video_bitrate=kwargs.pop('video_bitrate', None),
+                audio_bitrate=kwargs.pop('audio_bitrate', None)
             )
 
         # Prepare main config
@@ -74,9 +84,22 @@ def download(url, **kwargs):
 
         # Initialize and run downloader
         downloader = VideoDownloader(config)
-        result = downloader.download(url)
+        result = downloader.download()
 
         if result.success:
+            # If processing is enabled, process the video
+            if process_enabled and processing_config:
+                from ..core.processor import VideoProcessor
+                click.echo("Processing video...")
+                processor = VideoProcessor(processing_config)
+                processed_path = processor.process_video(result.filepath)
+                click.echo(click.style(
+                    f"Processing successful: {processed_path}",
+                    fg='green'
+                ))
+                # Update result filepath to processed file
+                result.filepath = processed_path
+
             click.echo(click.style(
                 f"Download successful: {result.filepath}",
                 fg='green'
