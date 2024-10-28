@@ -55,7 +55,7 @@ class TestVideoDownloader:
         output_file.touch()
 
         downloader = VideoDownloader(config)
-        result = downloader.download(valid_url)
+        result = downloader.download()
 
         assert result.success
         assert result.metadata.title == "Test Video"
@@ -92,7 +92,7 @@ class TestVideoDownloader:
         mock_instance.prepare_filename.return_value = str(output_file)
         output_file.touch()  # Create the file to simulate successful download
         
-        result = downloader.download(valid_url)
+        result = downloader.download()
         assert result.success
 
     @pytest.mark.parametrize("limit,expected", [

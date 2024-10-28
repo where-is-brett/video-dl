@@ -74,7 +74,7 @@ class TestIntegration:
             
             # Download video
             downloader = VideoDownloader(download_config)
-            result = downloader.download(test_url)
+            result = downloader.download()
             
             assert result.success
             assert result.filepath.exists()
@@ -136,7 +136,7 @@ class TestIntegration:
             
             # Download video
             downloader = VideoDownloader(download_config)
-            result = downloader.download(test_url)
+            result = downloader.download()
             
             assert result.success
             assert result.filepath.exists()
@@ -150,22 +150,20 @@ Test subtitle""")
             assert srt_file.exists()
 
     @pytest.mark.integration
-    def test_download_different_url(self, temp_dir, test_url):
-        """Test downloading a different URL than the one in config."""
+    def test_download_uses_config_url(self, temp_dir, test_url):
+        """Test that downloader uses the URL from config."""
         download_config = DownloadConfig(
             url=test_url,
             output_path=temp_dir
         )
-        
-        different_url = "https://youtube.com/watch?v=different123"
-        
+
         # Mock the download
         with patch('yt_dlp.YoutubeDL') as mock_ydl:
             mock_instance = mock_ydl.return_value.__enter__.return_value
-            mock_instance.extract_info.return_value = {'title': 'Different Video'}
-            
+            mock_instance.extract_info.return_value = {'title': 'Video'}
+
             downloader = VideoDownloader(download_config)
-            result = downloader.download(different_url)
-            
-            # Verify the downloaded URL is the one we passed
-            mock_instance.extract_info.assert_called_with(different_url, download=True)
+            result = downloader.download()
+
+            # Verify the downloaded URL is from the config
+            mock_instance.extract_info.assert_called_with(test_url, download=True)

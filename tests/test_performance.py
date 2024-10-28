@@ -40,7 +40,7 @@ class TestPerformance:
         
         downloader = VideoDownloader(config)
         start_time = time.time()
-        result = downloader.download(test_url)
+        result = downloader.download()
         duration = time.time() - start_time
         
         assert duration < 300  # Should complete within 5 minutes
