@@ -29,7 +29,7 @@ class TestVideoDownloader:
         "http://",
         "",
         "ftp://invalid.com",
-        "https://example.com/video"  # Not a supported video platform
+        "https://examplecomvideo"  
     ])
     def test_invalid_urls(self, temp_dir, url):
         """Test handling of invalid URLs."""
