@@ -18,3 +18,7 @@ class SubtitleError(VideoDownloaderError):
 class ProcessingError(VideoDownloaderError):
     """Raised when video processing fails."""
     pass
+
+class UnsupportedPlatformError(DownloadError):
+    """Raised when video platform is not supported."""
+    pass

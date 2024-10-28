@@ -1,6 +1,8 @@
 # src/video_dl/cli/download.py
 import click
 from pathlib import Path
+
+from video_dl.exceptions.errors import UnsupportedPlatformError
 from ..models.config import DownloadConfig, ProcessingConfig
 from ..core.downloader import VideoDownloader
 from ..logging.logger import get_logger
@@ -107,10 +109,16 @@ def download(url, **kwargs):
             click.echo(f"Download time: {result.download_time:.1f}s")
             click.echo(f"File size: {result.filesize / 1024 / 1024:.1f}MB")
         else:
-            click.echo(click.style(
-                f"Download failed: {result.error}",
-                fg='red'
-            ))
+            if isinstance(result.error, UnsupportedPlatformError):
+                click.echo(click.style(
+                    f"Unsupported platform: {result.error}",
+                    fg='yellow'  # Use yellow for unsupported rather than red for error
+                ))
+            else:
+                click.echo(click.style(
+                    f"Download failed: {result.error}",
+                    fg='red'
+                ))
 
     except Exception as e:
         click.echo(click.style(f"Error: {str(e)}", fg='red'))

@@ -3,39 +3,38 @@ import re
 import time
 from typing import Dict
 from pathlib import Path
+from urllib.parse import urlparse
 import yt_dlp
 from ..models.config import DownloadConfig
 from ..models.video import DownloadResult, VideoMetadata
-from ..exceptions.errors import DownloadError, ValidationError
+from ..exceptions.errors import DownloadError, UnsupportedPlatformError, ValidationError
 from ..utils.filesystem import calculate_checksum
+from ..logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 class VideoDownloader:
     def __init__(self, config: DownloadConfig):
         self.config = config
         self._validate_url(self.config.url)
         self.ydl_opts = self._prepare_ydl_opts()
-    
-    SUPPORTED_PLATFORMS = [
-            'youtube.com',
-            'youtu.be',
-            'vimeo.com',
-            'dailymotion.com'
-        ]
 
     def _validate_url(self, url: str) -> None:
         """Validate URL format."""
         if not url or not isinstance(url, str):
             raise ValidationError("URL cannot be empty")
         
-        # Basic URL validation for video platforms
-        valid_domains = r'(?:' + '|'.join(re.escape(p) for p in self.SUPPORTED_PLATFORMS) + ')'
-        url_pattern = fr'https?://(?:www\.)?{valid_domains}/\S+'
-        
-        if not re.match(url_pattern, url):
-            raise ValidationError(
-                f"Invalid URL format or unsupported platform: {url}\n"
-                f"Supported platforms: {', '.join(self.SUPPORTED_PLATFORMS)}"
-            )
+        try:
+            result = urlparse(url)
+            if not all([
+                result.scheme in ('http', 'https'),
+                result.netloc,  # Must have a domain
+                result.path or result.query or result.fragment, # Ensures URL has path, query, or fragment
+                len(url) <= 2083  # Common URL length limit
+            ]):
+                raise ValidationError(f"Invalid URL format: {url}")
+        except Exception:
+            raise ValidationError(f"Invalid URL format: {url}")
     
     def _parse_size_string(self, size_str: str) -> int:
         """Parse size string with units (e.g., '1M', '500K') to bytes."""
@@ -66,11 +65,11 @@ class VideoDownloader:
         """Prepare yt-dlp options from configuration."""
         # Handle quality setting
         if self.config.quality == 'best':
-            format_spec = 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best'
+            format_spec = 'bestvideo[ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc]/best'
         else:
             # Extract numeric height from quality string (e.g., '1080p' -> '1080')
             height = self.config.quality.rstrip('p')
-            format_spec = f'bestvideo[height<={height}][ext=mp4]+bestaudio[ext=m4a]/best[height<={height}][ext=mp4]/best'
+            format_spec = f'bestvideo[height<={height}][ext=mp4][vcodec^=avc]+bestaudio[ext=m4a]/best[height<={height}][ext=mp4][vcodec^=avc]/best'
 
         opts = {
             'format': self.config.format_id or format_spec,
@@ -100,27 +99,35 @@ class VideoDownloader:
                 return match.group(1)  # Extracts the numeric part, like 720 from "720p"
         return 'best'  # Default to "best" if no resolution is specified
 
-    def download(self, url: str) -> DownloadResult:
+    def download(self) -> DownloadResult:
         """Download video from URL."""
-        self._validate_url(url)
+        url = self.config.url
         start_time = time.time()
         last_error = None
-        
+
         for attempt in range(self.config.retries):
             try:
                 with yt_dlp.YoutubeDL(self.ydl_opts) as ydl:
-                    print(f"Starting download: {url}")
-                    info = ydl.extract_info(url, download=True)
+                    try:
+                        # Get info and download in one call
+                        info = ydl.extract_info(url, download=True)
+                    except yt_dlp.utils.UnsupportedError:
+                        raise UnsupportedPlatformError(f"Platform not supported for URL: {url}")
+                    except yt_dlp.utils.DownloadError as e:
+                        if "Unsupported URL" in str(e):
+                            raise UnsupportedPlatformError(f"Platform not supported for URL: {url}")
+                        raise
+
                     filename = ydl.prepare_filename(info)
                     filepath = Path(filename)
-                    
+
                     if not filepath.exists():
                         raise DownloadError(f"Download completed but file not found: {filepath}")
-                    
+
                     metadata = self._extract_metadata(info)
                     filesize = filepath.stat().st_size
                     checksum = calculate_checksum(filepath)
-                    
+
                     return DownloadResult(
                         success=True,
                         filepath=filepath,
@@ -130,15 +137,30 @@ class VideoDownloader:
                         filesize=filesize,
                         checksum=checksum
                     )
-                    
+
+            except UnsupportedPlatformError as e:
+                # Don't retry for unsupported platforms
+                logger.warning(str(e))
+                return DownloadResult(
+                    success=False,
+                    filepath=None,
+                    error=str(e),
+                    metadata=None,
+                    download_time=time.time() - start_time,
+                    filesize=0,
+                    checksum=None
+                )
+
             except Exception as e:
                 last_error = str(e)
+                logger.error(f"Download attempt {attempt + 1} failed: {last_error}")
+                
                 if attempt < self.config.retries - 1:
-                    print(f"Download failed: {last_error}. Retrying... ({attempt + 1}/{self.config.retries})")
-                    time.sleep(2 ** attempt)  # Exponential backoff
-                else:
-                    print(f"Download failed: {last_error}")
-                    
+                    sleep_time = 2 ** attempt  # Exponential backoff
+                    logger.info(f"Retrying in {sleep_time} seconds...")
+                    time.sleep(sleep_time)
+
+        # If we get here, all retries failed
         return DownloadResult(
             success=False,
             filepath=None,
